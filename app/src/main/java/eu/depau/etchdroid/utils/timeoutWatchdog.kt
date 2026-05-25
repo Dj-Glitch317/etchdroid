@@ -1,7 +1,10 @@
 package eu.depau.etchdroid.utils
 
+import android.util.Log
 import kotlinx.coroutines.*
 import java.util.concurrent.atomic.AtomicLong
+
+private const val TAG = "TimeoutWatchdog"
 
 interface TimeoutBump {
     fun bump()
@@ -26,7 +29,8 @@ suspend fun <T> timeoutWatchdog(
         while (true) {
             val delayTime = expirationTime.get() - System.currentTimeMillis()
             if (delayTime <= 0) {
-                result.cancel(CancellationException("Timeout expired"))
+                Log.e(TAG, "Watchdog timeout expired after ${timeMillis}ms — cancelling operation")
+                result.cancel(CancellationException("Watchdog timeout expired after ${timeMillis}ms"))
                 break
             } else {
                 // Wait for the remaining time

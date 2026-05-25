@@ -71,7 +71,7 @@ private const val WAKELOCK_TIMEOUT = 10 * 60 * 1000L
 private const val PROGRESS_UPDATE_INTERVAL = 1000L
 const val BUFFER_BLOCKS = 4096L
 const val QUEUE_SIZE = 2
-const val IO_TIMEOUT = 10 * 1000L
+const val IO_TIMEOUT = 15 * 1000L
 
 class WorkerService : LifecycleService() {
     private var mLoggedNotificationWarning = false
@@ -268,7 +268,13 @@ class WorkerService : LifecycleService() {
     }
 
     private fun releaseWakelock() {
-        mWakeLock?.release()
+        try {
+            if (mWakeLock?.isHeld == true) {
+                mWakeLock?.release()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to release wakelock", e)
+        }
         mWakeLock = null
         mWakelockAcquireTime = -1L
     }
@@ -354,10 +360,25 @@ class WorkerService : LifecycleService() {
             try {
                 try {
                     Telemetry.debug("Building USB mass storage device", "worker")
-                    massStorageDev = mDestDevice.buildDevice(this@WorkerService).apply {
-                        init()
+                    // Retry once on init failure — some Motorola/Qualcomm USB OTG
+                    // controllers need a second attempt after negotiation.
+                    var initAttempts = 0
+                    val maxInitAttempts = 2
+                    while (true) {
+                        try {
+                            initAttempts++
+                            massStorageDev = mDestDevice.buildDevice(this@WorkerService).apply {
+                                init()
+                            }
+                            blockDev = massStorageDev.blockDevices[0]!!
+                            break
+                        } catch (e: Exception) {
+                            if (initAttempts >= maxInitAttempts) throw e
+                            Log.w(TAG, "USB init attempt $initAttempts failed, retrying...", e)
+                            Telemetry.debug("USB init retry $initAttempts/$maxInitAttempts", "worker")
+                            kotlinx.coroutines.delay(1000)
+                        }
                     }
-                    blockDev = massStorageDev.blockDevices[0]!!
                 } catch (e: Exception) {
                     Telemetry.captureException("Failed to initialize USB mass storage device", e)
                     throw e as? EtchDroidException ?: InitException("Initialization failed", e)
@@ -367,7 +388,7 @@ class WorkerService : LifecycleService() {
                 // Resume a few blocks earlier in case things went haywire earlier
                 currentOffset = max(currentOffset - blockDev.blockSize * BUFFER_BLOCKS * 2, 0L)
 
-                val devSize: Long = blockDev.blocks * blockDev.blockSize.toLong()
+                val devSize: Long = (blockDev.blocks.toLong() and 0xFFFFFFFFL) * blockDev.blockSize.toLong()
                 Telemetry.debug(
                     "Device size: ${devSize.toHRSize(false)} " +
                             "(block size: ${blockDev.blockSize.toHRSize(false)}, " +
@@ -489,7 +510,7 @@ class WorkerService : LifecycleService() {
                 // libusb transfer (e.g. after a Huawei/Samsung OTG reset mid-write).
                 // close() calls into native code and cannot be interrupted by coroutine
                 // cancellation, so without this timeout the service hangs indefinitely.
-                withTimeoutOrNull(3000L) {
+                withTimeoutOrNull(5000L) {
                     try {
                         if (massStorageDevDelegate.isInitialized)
                             massStorageDev.close()

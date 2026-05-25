@@ -76,8 +76,13 @@ class BlockDeviceOutputStream(
     /**
      * The total size of the block device in bytes.
      */
+    /**
+     * The total size of the block device in bytes.
+     * Uses unsigned interpretation of blocks (via toLong() and mask) to handle
+     * the edge case where libaums returns a negative blocks count for >2TB drives.
+     */
     private val mSizeBytes: Long
-        get() = blockDev.blocks * blockDev.blockSize.toLong()
+        get() = (blockDev.blocks.toLong() and 0xFFFFFFFFL) * blockDev.blockSize.toLong()
 
     /**
      * The buffer used to store the data before it is written to the block device.

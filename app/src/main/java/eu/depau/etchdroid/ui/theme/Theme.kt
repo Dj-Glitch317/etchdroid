@@ -101,8 +101,7 @@ fun EtchDroidTheme(
     }
     val view = LocalView.current
     if (!view.isInEditMode) {
-        val currentWindow = (view.context as? Activity)?.window
-            ?: throw Exception("Not in an activity - unable to get Window reference")
+        val currentWindow = (view.context as? Activity)?.window ?: return@SideEffect
         SideEffect {
             WindowCompat.getInsetsController(currentWindow, view).apply {
                 isAppearanceLightStatusBars = !darkTheme

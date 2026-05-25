@@ -1,12 +1,28 @@
 package eu.depau.etchdroid.utils
 
+import android.os.Looper
+import android.util.Log
 import kotlinx.coroutines.runBlocking
 import java.io.InputStream
 import java.io.OutputStream
 
+private const val TAG = "AsyncStreams"
+
+/**
+ * Safe runBlocking wrapper that warns (but does not deadlock) when called
+ * from the main thread.  This should never happen in production, but if it
+ * does the log message will make debugging straightforward.
+ */
+private fun <T> safeRunBlocking(block: suspend () -> T): T {
+    if (Looper.myLooper() == Looper.getMainLooper()) {
+        Log.w(TAG, "runBlocking called on main thread — potential deadlock!", Throwable("stack trace"))
+    }
+    return runBlocking { block() }
+}
+
 abstract class AsyncOutputStream : OutputStream() {
     override fun write(b: Int) {
-        runBlocking { writeAsync(b) }
+        safeRunBlocking { writeAsync(b) }
     }
 
     open suspend fun writeAsync(b: Int) {
@@ -14,7 +30,7 @@ abstract class AsyncOutputStream : OutputStream() {
     }
 
     override fun write(b: ByteArray) {
-        runBlocking { writeAsync(b) }
+        safeRunBlocking { writeAsync(b) }
     }
 
     open suspend fun writeAsync(b: ByteArray) {
@@ -22,7 +38,7 @@ abstract class AsyncOutputStream : OutputStream() {
     }
 
     override fun write(b: ByteArray, off: Int, len: Int) {
-        runBlocking { writeAsync(b, off, len) }
+        safeRunBlocking { writeAsync(b, off, len) }
     }
 
     open suspend fun writeAsync(b: ByteArray, off: Int, len: Int) {
@@ -30,7 +46,7 @@ abstract class AsyncOutputStream : OutputStream() {
     }
 
     override fun close() {
-        runBlocking { closeAsync() }
+        safeRunBlocking { closeAsync() }
     }
 
     open suspend fun closeAsync() {
@@ -38,7 +54,7 @@ abstract class AsyncOutputStream : OutputStream() {
     }
 
     override fun flush() {
-        runBlocking { flushAsync() }
+        safeRunBlocking { flushAsync() }
     }
 
     open suspend fun flushAsync() {
@@ -48,7 +64,7 @@ abstract class AsyncOutputStream : OutputStream() {
 
 abstract class AsyncInputStream : InputStream() {
     override fun read(): Int {
-        return runBlocking { readAsync() }
+        return safeRunBlocking { readAsync() }
     }
 
     open suspend fun readAsync(): Int {
@@ -56,7 +72,7 @@ abstract class AsyncInputStream : InputStream() {
     }
 
     override fun read(b: ByteArray): Int {
-        return runBlocking { readAsync(b) }
+        return safeRunBlocking { readAsync(b) }
     }
 
     open suspend fun readAsync(b: ByteArray): Int {
@@ -64,7 +80,7 @@ abstract class AsyncInputStream : InputStream() {
     }
 
     override fun read(b: ByteArray, off: Int, len: Int): Int {
-        return runBlocking { readAsync(b, off, len) }
+        return safeRunBlocking { readAsync(b, off, len) }
     }
 
     open suspend fun readAsync(b: ByteArray, off: Int, len: Int): Int {
@@ -72,7 +88,7 @@ abstract class AsyncInputStream : InputStream() {
     }
 
     override fun close() {
-        runBlocking { closeAsync() }
+        safeRunBlocking { closeAsync() }
     }
 
     open suspend fun closeAsync() {
@@ -80,7 +96,7 @@ abstract class AsyncInputStream : InputStream() {
     }
 
     override fun available(): Int {
-        return runBlocking { availableAsync() }
+        return safeRunBlocking { availableAsync() }
     }
 
     open suspend fun availableAsync(): Int {
@@ -88,7 +104,7 @@ abstract class AsyncInputStream : InputStream() {
     }
 
     override fun mark(readlimit: Int) {
-        runBlocking { markAsync(readlimit) }
+        safeRunBlocking { markAsync(readlimit) }
     }
 
     open suspend fun markAsync(readlimit: Int) {
@@ -96,7 +112,7 @@ abstract class AsyncInputStream : InputStream() {
     }
 
     override fun markSupported(): Boolean {
-        return runBlocking { markSupportedAsync() }
+        return safeRunBlocking { markSupportedAsync() }
     }
 
     open suspend fun markSupportedAsync(): Boolean {
@@ -104,7 +120,7 @@ abstract class AsyncInputStream : InputStream() {
     }
 
     override fun reset() {
-        runBlocking { resetAsync() }
+        safeRunBlocking { resetAsync() }
     }
 
     open suspend fun resetAsync() {
@@ -112,7 +128,7 @@ abstract class AsyncInputStream : InputStream() {
     }
 
     override fun skip(n: Long): Long {
-        return runBlocking { skipAsync(n) }
+        return safeRunBlocking { skipAsync(n) }
     }
 
     open suspend fun skipAsync(n: Long): Long {

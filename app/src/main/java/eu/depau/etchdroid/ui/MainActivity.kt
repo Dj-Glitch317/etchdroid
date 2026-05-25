@@ -1,6 +1,7 @@
 package eu.depau.etchdroid.ui
 
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.IntentFilter
 import android.hardware.usb.UsbManager
 import android.net.Uri
@@ -164,6 +165,13 @@ class MainActivity : ActivityBase() {
     }
 
     private fun registerUsbReceiver() {
+        // Check if USB host is available at runtime (required=false in manifest
+        // so the app can install on all devices and show a helpful message)
+        if (!packageManager.hasSystemFeature(PackageManager.FEATURE_USB_HOST)) {
+            Log.w(TAG, "Device does not support USB host mode")
+            return
+        }
+
         val usbAttachedFilter = IntentFilter(UsbManager.ACTION_USB_DEVICE_ATTACHED)
         val usbDetachedFilter = IntentFilter(UsbManager.ACTION_USB_DEVICE_DETACHED)
 
@@ -171,7 +179,7 @@ class MainActivity : ActivityBase() {
         registerExportedReceiver(mUsbDevicesReceiver, usbDetachedFilter)
 
         val usbManager = getSystemService(USB_SERVICE) as UsbManager
-        mViewModel.replaceUsbDevices(usbManager.deviceList.values)
+        mViewModel.replaceUsbDevices(usbManager.deviceList?.values ?: emptyList())
     }
 
     private fun unregisterUsbReceiver() {

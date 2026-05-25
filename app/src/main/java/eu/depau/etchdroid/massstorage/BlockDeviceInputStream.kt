@@ -77,8 +77,13 @@ class BlockDeviceInputStream(
     /**
      * The size of the block device in bytes.
      */
+    /**
+     * The total size of the block device in bytes.
+     * Uses unsigned interpretation of blocks (via mask) to safely handle
+     * large drives where libaums may return a negative block count.
+     */
     private val sizeBytes: Long
-        get() = blockDev.blocks * blockDev.blockSize.toLong()
+        get() = (blockDev.blocks.toLong() and 0xFFFFFFFFL) * blockDev.blockSize.toLong()
 
     /**
      * Whether the stream is at or past the end of the block device.

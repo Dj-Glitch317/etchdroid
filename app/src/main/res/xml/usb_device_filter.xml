@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- USB mass storage devices (class 8 = mass storage) -->
+<resources>
+    <usb-device class="8" />
+</resources>
